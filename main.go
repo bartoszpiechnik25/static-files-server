@@ -1,8 +1,6 @@
 package main
 
-import (
-	"github.com/bartoszpiechnik25/static-fileserver/server"
-)
+import "github.com/bartoszpiechnik25/static-files-server/server"
 
 func main() {
 	// sdkConfig, err := config.LoadDefaultConfig(context.TODO())

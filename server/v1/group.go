@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"github.com/bartoszpiechnik25/static-fileserver/server/v1/handlers"
+	"github.com/bartoszpiechnik25/static-files-server/server/v1/handlers"
 	"github.com/gin-gonic/gin"
 )
 
