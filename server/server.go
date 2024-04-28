@@ -7,6 +7,8 @@ import (
 
 func CreateServer() *gin.Engine {
 	router := gin.Default()
+	router.ForwardedByClientIP = true
+	router.SetTrustedProxies([]string{"127.0.0.1"})
 	router.Use(gin.Recovery())
 	v1.CreateAssetsV1Group(router)
 	return router

@@ -6,7 +6,7 @@ import (
 )
 
 func CreateAssetsV1Group(router *gin.Engine) {
-	v1 := router.Group("/v1")
+	v1 := router.Group("/api/v1")
 	v1.OPTIONS("/assets", handlers.OptionsHandler)
 	v1.Use(AuthMiddleware())
 	{

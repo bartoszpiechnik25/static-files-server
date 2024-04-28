@@ -1,45 +1,38 @@
 package main
 
-import "github.com/bartoszpiechnik25/static-files-server/server"
+import (
+	"context"
+	"fmt"
+	"log"
+
+	connector "github.com/bartoszpiechnik25/static-files-server/aws-connector"
+	"github.com/bartoszpiechnik25/static-files-server/server"
+)
 
 func main() {
-	// sdkConfig, err := config.LoadDefaultConfig(context.TODO())
+	log.Println("Creating AWS persistent agent")
+	agent, err := connector.NewS3PersistentAgent(context.TODO())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if ok, err := agent.BucketExists(context.TODO()); !ok {
+		log.Fatal(err)
+	}
+	if ok, err := agent.DirExists("test-dir"); !ok {
+		log.Fatal(err)
+	}
+	// file, err := os.Open("file.json")
 	// if err != nil {
-	// 	fmt.Println("Could not load default configuration!")
-	// 	return
+	// 	log.Fatal(err)
 	// }
-	// fmt.Println(sdkConfig.Region)
-
-	// s3Client := s3.NewFromConfig(sdkConfig)
-
-	// buckets, err := s3Client.ListBuckets(context.TODO(), &s3.ListBucketsInput{})
-	// if err != nil {
-	// 	fmt.Println("Could not list buckets for this account!")
-	// 	return
+	// if err := agent.UploadFile([]string{"test-dir"}, "file.json", file); err != nil {
+	// 	log.Fatal(err)
 	// }
-
-	// if len(buckets.Buckets) == 0 {
-	// 	fmt.Println("You don't have any buckets!")
-	// } else {
-	// 	for _, bucket := range buckets.Buckets {
-	// 		fmt.Printf("Your bucker name: %s\n", *bucket.Name)
-	// 	}
-	// }
-
-	// router := gin.Default()
-
-	// router.GET("/hello", func(ctx *gin.Context) {
-	// 	if bearer, ok := ctx.Request.Header["Authorization"]; ok {
-	// 		fmt.Println(bearer)
-	// 	} else {
-	// 		fmt.Println("No header!")
-	// 		ctx.JSON(http.StatusUnauthorized, "unathorized")
-	// 		ctx.Abort()
-	// 	}
-	// 	ctx.Next()
-	// })
-
-	// router.Run(":42069")
+	// file.Close()
+	fmt.Println(agent.FileExists("test-dir/file.json"))
 	router := server.CreateServer()
-	router.Run(":6666")
+	server := "127.0.0.1:6666"
+	log.Printf("Starting server on: %s", server)
+	router.Run(server)
 }
