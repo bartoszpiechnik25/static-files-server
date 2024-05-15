@@ -15,6 +15,16 @@ import (
 
 const BUCKET_NAME string = "booking-bucket-2024"
 
+var BUCKET_REGION string = ""
+
+type Agent interface {
+	BucketExists(context.Context) (bool, error)
+	DirExists(context.Context, string) (bool, error)
+	FileExists(context.Context, string) (bool, error)
+	CreateDir(context.Context, string) error
+	UploadFile(context.Context, []string, string, io.Reader) error
+}
+
 type S3PersistentAgent struct {
 	sdkClient *s3.Client
 }
@@ -25,6 +35,7 @@ func NewS3PersistentAgent(ctx context.Context) (*S3PersistentAgent, error) {
 		return nil, fmt.Errorf("cannot load config from file ~/.aws/credentials")
 	}
 	sdkClient := s3.NewFromConfig(config)
+	BUCKET_REGION = config.Region
 	agent := &S3PersistentAgent{sdkClient: sdkClient}
 	return agent, nil
 }
@@ -49,8 +60,8 @@ func (agent *S3PersistentAgent) BucketExists(ctx context.Context) (bool, error) 
 	return exists, err
 }
 
-func (agent *S3PersistentAgent) DirExists(dirname string) (bool, error) {
-	result, err := agent.sdkClient.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
+func (agent *S3PersistentAgent) DirExists(ctx context.Context, dirname string) (bool, error) {
+	result, err := agent.sdkClient.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(BUCKET_NAME),
 	})
 
@@ -68,7 +79,7 @@ func (agent *S3PersistentAgent) DirExists(dirname string) (bool, error) {
 	return false, nil
 }
 
-func (agent *S3PersistentAgent) FileExists(fileName string) (bool, error) {
+func (agent *S3PersistentAgent) FileExists(ctx context.Context, fileName string) (bool, error) {
 	_, err := agent.sdkClient.HeadObject(context.TODO(), &s3.HeadObjectInput{
 		Bucket: aws.String(BUCKET_NAME),
 		Key:    aws.String(fileName),
@@ -87,26 +98,51 @@ func (agent *S3PersistentAgent) FileExists(fileName string) (bool, error) {
 	return true, nil
 }
 
-func (agent *S3PersistentAgent) CreateDir(dirName string) error {
-	_, err := agent.sdkClient.HeadObject(context.TODO(), &s3.HeadObjectInput{
-		Bucket: aws.String(BUCKET_NAME),
-		Key:    aws.String(dirName),
-	})
-	if err != nil {
-		return fmt.Errorf("could not create directory \"%v\" due to:\n%v", dirName, err)
+func (agent *S3PersistentAgent) CreateDir(ctx context.Context, dirName string) error {
+	var dir string
+	if !strings.HasSuffix(dirName, "/") {
+		dir = fmt.Sprintf("%s/", dirName)
+	} else {
+		dir = dirName
 	}
+
+	exists, err := agent.FileExists(ctx, dir)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		_, err := agent.sdkClient.PutObject(
+			ctx,
+			&s3.PutObjectInput{
+				Bucket: aws.String(BUCKET_NAME),
+				Key:    aws.String(dir),
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (agent *S3PersistentAgent) UploadFile(dirs []string, fileName string, file io.Reader) error {
-	filePath := strings.Join(dirs, "/") + "/" + fileName
-	_, err := agent.sdkClient.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(BUCKET_NAME),
-		Key:    aws.String(filePath),
-		Body:   file,
-	})
+func (agent *S3PersistentAgent) UploadFile(ctx context.Context, dirs []string, fileName string, file io.Reader) error {
+	filePath := CreateFilepath(dirs, fileName)
+	_, err := agent.sdkClient.PutObject(
+		ctx,
+		&s3.PutObjectInput{
+			Bucket: aws.String(BUCKET_NAME),
+			Key:    aws.String(filePath),
+			Body:   file,
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("could not upload file \"%v\" due to: %v", fileName, err)
 	}
 	return nil
+}
+
+func CreateFilepath(dirs []string, fileName string) string {
+	return strings.Join(dirs, "/") + "/" + fileName
 }
